@@ -46,3 +46,7 @@ Verification: release build and installed image-panel UI checked. A 512 × 512 P
 Use Model beneath the conversation title to choose Qwen or RPMax. The selection is remembered across launches and each new assistant reply records the answering model. Switching does not erase the conversation. Only one chat model is kept loaded.
 
 Qwen uses qwen3.5:9b and supports photos and project tools. RPMax uses Mistral Nemo 12B ArliAI RPMax v1.2 Q4_K_M, with a 4096-token context to fit the 16 GB Mac. RPMax is text-only in Lantern: file text can be attached, photos need Qwen, and project tools run only with Qwen. The Image panel uses Draw Things independently of either chat model.
+
+## License
+
+Lantern is open source under the [MIT License](LICENSE). Model weights and third-party applications such as Ollama and Draw Things are not included and retain their own licenses.
