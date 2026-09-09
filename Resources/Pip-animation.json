@@ -1,0 +1,25 @@
+{
+  "alpha" : true,
+  "anchor" : [
+    128,
+    128
+  ],
+  "columns" : 8,
+  "fps" : {
+    "happy" : 10,
+    "idle" : 6,
+    "waiting" : 6,
+    "working" : 14
+  },
+  "frameHeight" : 256,
+  "frameWidth" : 256,
+  "name" : "Pip",
+  "provenance" : "Deterministic layered poses from the approved Pip cutout; shared canvas, scale and anchor.",
+  "rows" : 4,
+  "states" : [
+    "idle",
+    "working",
+    "happy",
+    "waiting"
+  ]
+}

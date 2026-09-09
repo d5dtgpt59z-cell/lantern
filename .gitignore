@@ -1,0 +1,23 @@
+# Build products and machine-local configuration
+.build/
+dist/
+.codex/
+.swiftpm/
+.DS_Store
+__pycache__/
+*.pyc
+# Credentials, local data, model weights, and exports
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*
+secrets*
+conversations*.json
+Backups/
+Images/
+*.gguf
+*.safetensors
+*.log
