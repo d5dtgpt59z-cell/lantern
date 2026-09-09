@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Window("Lantern", id: "main") {
             ContentView(store: store).frame(minWidth: 760, minHeight: 560)
                 .task { await store.connect() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in store.shutdown() }
         }
         .restorationBehavior(.disabled)
         .defaultSize(width: 1080, height: 760)

@@ -4,6 +4,70 @@ import AppKit
     @Published var conversations: [Conversation] = []
     @Published var selected: UUID? { didSet { if oldValue != selected { attachments = [] }; if current?.workspacePath != workspace?.path { workspace = nil } } }
     @Published var model: ChatModel = ChatModel(rawValue: UserDefaults.standard.string(forKey: "chatModel") ?? "") ?? .qwen
+    @Published var showModels = false
+    @Published var thinking = UserDefaults.standard.bool(forKey: "thinking") { didSet { UserDefaults.standard.set(thinking, forKey: "thinking") } }
+    @Published var installed = Set<String>()
+    @Published var downloading: ChatModel?
+    @Published var downloadProgress: Double?
+    @Published var downloadStatus = ""
+    @Published var modelError: String?
+    @Published var freeGB: Double = 0
+    @Published var updateStatus = ""
+    @Published var checkingUpdate = false
+    private var lastStorageCheck = Date.distantPast
+    private var downloadTask: Task<Void, Never>?
+    var supportedHardware: Bool { ProcessInfo.processInfo.physicalMemory >= 16 * 1024 * 1024 * 1024 }
+    func refreshStorage() {
+        let values = try? LocalEngine.modelDirectory.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        freeGB = Double(values?.volumeAvailableCapacityForImportantUsage ?? 0) / 1_000_000_000
+    }
+    func download(_ target: ChatModel) {
+        guard downloading == nil, !generating else { return }
+        refreshStorage()
+        guard supportedHardware else { modelError = "This release requires an Apple Silicon Mac with at least 16 GB of memory."; return }
+        let resuming = UserDefaults.standard.bool(forKey: "partial-" + target.rawValue)
+        guard freeGB > (resuming ? 2 : target.downloadGB + 2) else { modelError = "Free at least \(Int(target.downloadGB + 3)) GB, then retry. Partial downloads are kept for resuming."; return }
+        UserDefaults.standard.set(true, forKey: "partial-" + target.rawValue)
+        downloading = target; downloadStatus = "Connecting…"; modelError = nil
+        downloadTask = Task {
+            defer { downloading = nil; downloadProgress = nil; refreshStorage() }
+            do {
+                guard await engine.available() else { throw Attachment.failure("The engine is not ready. Close this panel, retry the connection, then resume.") }
+                try await engine.pull(target) { [weak self] status, progress in self?.downloadStatus = status.hasPrefix("pulling") ? "Downloading model files…" : status.hasPrefix("verifying") ? "Checking download…" : status == "success" ? "Ready to chat" : "Preparing your model…"; self?.downloadProgress = progress
+                    if let self, Date().timeIntervalSince(self.lastStorageCheck) > 2 {
+                        self.lastStorageCheck = Date(); self.refreshStorage()
+                        if self.freeGB < 1.5 { self.modelError = "Download paused because storage is running low. Free some space, then resume."; self.pauseDownload() }
+                    }
+                }
+                installed = try await engine.installedModels()
+                UserDefaults.standard.removeObject(forKey: "partial-" + target.rawValue)
+                downloadStatus = "Download complete"
+                await connect()
+            } catch {
+                if Task.isCancelled { downloadStatus = "Paused. Resume to continue." }
+                else { modelError = error.localizedDescription; downloadStatus = "Download needs attention" }
+            }
+        }
+    }
+    func pauseDownload() { downloadTask?.cancel() }
+    func removeModel(_ target: ChatModel) async {
+        guard downloading == nil, !generating else { return }
+        do { try await engine.remove(target); installed = try await engine.installedModels(); await connect(); refreshStorage() }
+        catch { modelError = error.localizedDescription }
+    }
+    func shutdown() { stop(); pauseDownload(); engine.shutdown() }
+    func checkUpdate() async {
+        guard !checkingUpdate else { return }; checkingUpdate = true; defer { checkingUpdate = false }
+        do {
+            let url = URL(string: "https://api.github.com/repos/d5dtgpt59z-cell/lantern/releases/latest")!
+            var req = URLRequest(url: url); req.timeoutInterval = 15
+            let (data, response) = try await URLSession.shared.data(for: req)
+            if (response as? HTTPURLResponse)?.statusCode == 404 { updateStatus = "No public release is available yet."; return }
+            guard (response as? HTTPURLResponse)?.statusCode == 200, let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any], let tag = obj["tag_name"] as? String else { throw Attachment.failure("Update check failed. Try again later.") }
+            let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+            updateStatus = tag.trimmingCharacters(in: CharacterSet(charactersIn: "v")).compare(current, options: .numeric) == .orderedDescending ? "Version \(tag) is available on Releases." : "You're up to date (\(current))."
+        } catch { updateStatus = "Could not check for updates. Your local chats still work offline." }
+    }
     @Published var switchingModel = false
     @Published var draft = ""
     @Published var attachments: [Attachment] = []
@@ -19,23 +83,25 @@ import AppKit
     private var generation: Task<Void, Never>?
     private var connecting = false
     private let file: URL
+    private var canSaveChats = true
     init() {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Lantern")
         file = dir.appendingPathComponent("conversations.json")
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             if FileManager.default.fileExists(atPath: file.path) { conversations = try JSONDecoder().decode([Conversation].self, from: Data(contentsOf: file)) }
-        } catch { self.error = "Saved chats could not be loaded: \(error.localizedDescription)" }
+        } catch { canSaveChats = false; self.error = "Saved chats could not be loaded: \(error.localizedDescription)" }
         selected = conversations.first?.id
-        if conversations.isEmpty { newChat() }
+        if conversations.isEmpty && canSaveChats { newChat() }
     }
     var current: Conversation? { conversations.first { $0.id == selected } }
     func save() {
+        guard canSaveChats else { return }
         do { try JSONEncoder().encode(conversations).write(to: file, options: .atomic) }
         catch { self.error = "Your chats could not be saved: \(error.localizedDescription)" }
     }
     func newChat() {
-        guard !generating else { return }
+        guard !generating, canSaveChats else { return }
         error = nil
         if let empty = conversations.first(where: { $0.messages.isEmpty && $0.workspacePath == workspace?.path }) { selected = empty.id; draft = ""; return }
         let chat = Conversation(workspacePath: workspace?.path); conversations.insert(chat, at: 0); selected = chat.id; draft = ""; save()
@@ -47,12 +113,13 @@ import AppKit
             if !(await engine.available()) { try engine.start() }
             for _ in 0..<30 {
                 if await engine.available() {
-                    if try await engine.hasModel(model) { ready = true; status = "Ready · runs on this Mac"; return }
-                    status = "\(model.title) is not installed"; error = "The selected model is not downloaded yet. Choose Qwen while RPMax finishes installing."; return
+                    installed = try await engine.installedModels(); refreshStorage()
+                    if installed.contains(model.ollamaName) { ready = true; status = "Ready · runs on this Mac"; return }
+                    status = "\(model.title) is not installed"; showModels = true; return
                 }
                 try await Task.sleep(for: .seconds(2))
             }
-            status = "Model is still preparing"; error = "The first model download is still running. Click Retry connection in a moment."
+            status = "Engine needs attention"; error = "The local engine did not start. Retry the connection or download a fresh copy of Lantern."
         } catch { status = "Engine needs attention"; self.error = error.localizedDescription }
     }
     func selectModel(_ next: ChatModel) {
@@ -65,6 +132,11 @@ import AppKit
             catch { self.error = error.localizedDescription; status = "Model needs attention" }
         }
     }
+    func retryAnswer() {
+        guard ready, !generating, current?.messages.contains(where: { $0.role == "user" }) == true else { return }
+        draft = "Please continue my previous request. Check the existing tool results before proposing any action again."
+        send()
+    }
     func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ready, !generating, (!text.isEmpty || !attachments.isEmpty), let id = selected, let index = conversations.firstIndex(where: { $0.id == id }) else { return }
@@ -72,6 +144,7 @@ import AppKit
             error = "RPMax is text-only. Choose Qwen to discuss photos, or remove the attached image."; return
         }
         let modelAtStart = model
+        let thinkingAtStart = thinking && model == .qwen
         error = nil; draft = ""; generating = true
         if conversations[index].messages.isEmpty { conversations[index].title = String((text.isEmpty ? attachments.first!.name : text).prefix(48)) }
         conversations[index].messages.append(Message(role: "user", content: text.isEmpty ? "Please describe or summarize these attachments." : text, attachments: attachments.isEmpty ? nil : attachments))
@@ -90,7 +163,7 @@ import AppKit
                     let answer = Message(role: "assistant", content: "", modelName: modelAtStart.title)
                     conversations[i].messages.append(answer)
                     activity = "Thinking on your Mac…"
-                    let calls = try await engine.stream(messages: history, model: modelAtStart, agent: workspaceAtStart != nil) { [weak self] token in
+                    let calls = try await engine.stream(messages: history, model: modelAtStart, agent: workspaceAtStart != nil, thinking: thinkingAtStart) { [weak self] token in
                         guard let self, let i = self.conversations.firstIndex(where: { $0.id == id }), let j = self.conversations[i].messages.firstIndex(where: { $0.id == answer.id }) else { return }
                         self.conversations[i].messages[j].content += token
                     }

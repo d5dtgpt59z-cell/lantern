@@ -12,13 +12,14 @@ final class CommandJob: @unchecked Sendable {
 }
 struct CommandRunner {
     static func run(command: String, root: URL) async throws -> String {
-        guard let helper = Bundle.main.url(forResource: "run_command", withExtension: "py") else { throw AgentTools.fail("Command supervisor is missing. No command was run.") }
+        let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/LanternCommand")
+        guard FileManager.default.isExecutableFile(atPath: helper.path) else { throw AgentTools.fail("Command supervisor is missing. No command was run.") }
         let job = CommandJob()
         return try await withTaskCancellationHandler {
             try await Task.detached {
                 let process = job.process
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-                process.arguments = [helper.path]
+                process.executableURL = helper
+                process.arguments = []
                 let input = Pipe(); let output = Pipe()
                 process.standardInput = input; process.standardOutput = output; process.standardError = output
                 try job.start()

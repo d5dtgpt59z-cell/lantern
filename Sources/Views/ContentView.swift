@@ -16,6 +16,12 @@ struct ContentView: View {
                             ForEach(ChatModel.allCases) { model in Text(model.title).tag(model) }
                         }.pickerStyle(.menu).frame(width: 165).disabled(store.generating || store.switchingModel).accessibilityLabel("Chat model")
                     }
+                    if store.model == .qwen {
+                        Picker("Response mode", selection: $store.thinking) {
+                            Text("Quick").tag(false); Text("Think").tag(true)
+                        }.pickerStyle(.segmented).frame(width: 130).disabled(store.generating)
+                        .help("Think spends more time reasoning. Quick answers directly.")
+                    }
                     Spacer()
                     Button { showPet.toggle() } label: { Image(systemName: "pawprint.fill").foregroundStyle(showPet ? Color.orange : Color.secondary) }.buttonStyle(.plain).help(showPet ? "Hide Pip" : "Show Pip").accessibilityLabel(showPet ? "Hide Pip" : "Show Pip")
                     HStack(spacing: 6) { Circle().fill(store.ready ? Color.green : Color.orange).frame(width: 6, height: 6); Text(store.ready ? "ON YOUR MAC" : "WARMING UP").font(.system(size: 10, weight: .semibold, design: .monospaced)) }
@@ -28,15 +34,17 @@ struct ContentView: View {
                         Image(systemName: "exclamationmark.circle")
                         Text(error).font(.callout).textSelection(.enabled)
                         Spacer()
+                        if store.ready && !store.generating { Button("Retry answer") { store.retryAnswer() } }
                         Button { store.error = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain)
                     }.padding(12).background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10)).padding(.horizontal, 24)
                 }
-                ComposerView(store: store).frame(height: 168)
+                ComposerView(store: store).frame(height: store.attachments.isEmpty ? 168 : 270)
             }.frame(maxWidth: .infinity).frame(height: geometry.size.height)
         }
         }
         .onContinuousHover { phase in if case .active(let point) = phase { pointer = point } }
         .overlay { if showPet { PetCompanion(store: store, visible: $showPet, pointer: pointer) } }
+        .sheet(isPresented: $store.showModels) { ModelManagerView(store: store) }
         .sheet(item: $store.approval) { request in ApprovalView(store: store, request: request) }
         .tint(Color(red: 0.85, green: 0.57, blue: 0.22))
     }

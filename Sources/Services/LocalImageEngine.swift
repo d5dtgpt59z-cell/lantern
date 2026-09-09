@@ -32,10 +32,10 @@ final class LocalImageEngine: NSObject, URLSessionTaskDelegate {
 
     func generate(prompt: String, negative: String, size: Int, model: String) async throws -> URL {
         // Release the chat model before the image engine uses unified memory.
-        let running = try await request("http://127.0.0.1:11434/api/ps")
+        let running = try await request("http://127.0.0.1:11435/api/ps")
         for entry in running["models"] as? [[String: Any]] ?? [] {
             if let name = entry["name"] as? String {
-                _ = try await request("http://127.0.0.1:11434/api/generate", body: ["model": name, "keep_alive": 0], timeout: 30)
+                _ = try await request("http://127.0.0.1:11435/api/generate", body: ["model": name, "keep_alive": 0], timeout: 30)
             }
         }
         guard try await self.model() == model else { throw Attachment.failure("The image model changed. Reconnect before generating.") }

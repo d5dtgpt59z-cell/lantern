@@ -3,15 +3,18 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 MODE="${1:-run}"
 pkill -x Lantern 2>/dev/null || true
+./script/prepare_engine.sh
 swift build -c release
 APP="$(pwd)/dist/Lantern.app"
+rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Lantern "$APP/Contents/MacOS/Lantern"
-if [ -d Resources/Pip-frames ]; then ditto Resources/Pip-frames "$APP/Contents/Resources/Pip-frames"; fi
-cp Resources/run_command.py "$APP/Contents/Resources/"
+ditto Resources/Pip-frames "$APP/Contents/Resources/Pip-frames"
+ditto Resources/ThirdParty "$APP/Contents/Resources/ThirdParty"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-if [ -f Resources/Lantern.icns ]; then cp Resources/Lantern.icns "$APP/Contents/Resources/"; fi
-codesign --force --sign - "$APP"
+cp Resources/Lantern.icns "$APP/Contents/Resources/"
+./script/embed_runtime.sh "$APP"
+codesign --force --sign - --options runtime "$APP"
 case "$MODE" in
   --build) ;;
   --debug) lldb -- "$APP/Contents/MacOS/Lantern" ;;

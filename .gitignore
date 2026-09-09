@@ -21,3 +21,9 @@ Images/
 *.gguf
 *.safetensors
 *.log
+
+Vendor/
+work/
+*.dmg
+*.xcarchive
+xcuserdata/

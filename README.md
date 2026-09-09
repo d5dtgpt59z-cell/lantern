@@ -1,52 +1,57 @@
 # Lantern
 
-A native local chat app for this Mac, using Qwen 3.5 9B through Ollama.
+A free, open-source Mac assistant with local chat, photos and files, approved project tools, and Pip the animated moth.
 
-## Use
+**Standalone 1.0 release candidate.** Apple Silicon · macOS 15+ · 16 GB memory minimum. Public signed/notarized downloads are pending. Source builds and local test packages are available; do not treat an ad-hoc signature as a production installer.
 
-Open Lantern from Applications or click its Dock icon. It starts the local engine automatically. When the status says Ready, type a message and click Send, or press Command–Return. Return adds a new line. Click New conversation to change topics. Copy buttons are available on answers and code blocks. Stop interrupts a reply.
+## Everyday use
 
-Chats are saved on this Mac in `~/Library/Application Support/Lantern/conversations.json`. The model lives in `~/.ollama/models`. Keep Ollama installed in Applications; Lantern uses its engine without requiring its chat window.
+Open Lantern, download the recommended Qwen model, and start chatting. The inference engine is included: users do not need Ollama, Python, Terminal, or an account. Internet is needed for model downloads and optional update checks. Chat works offline after setup.
 
-The downloaded model runs without internet or a cloud account. Chat mode has no tools. Choose a specific project folder to enable project tools: list, read and search ordinary text files; propose a file replacement; request a shell command. Every file write and command requires its own approval. Rejecting an action stops that run. File replacements retain a backup in Lantern's Application Support/Backups folder. Commands can modify or delete project files and are not automatically undoable.
+- **Manage models:** download/resume, pause, select, or remove models. The app checks available storage and remembers the selected model. Existing Ollama downloads are reused when found at first launch. Shared models remain shared: removing one also removes it from Ollama.
+- **Quick / Think:** Qwen can answer directly or spend longer reasoning. Think may take substantially longer. RPMax remains a text-only creative option.
+- **Attach:** photos, UTF-8 text/code, or PDFs with selectable text; four attachments, 20 MB each, 12,000 extracted document characters total. Images are resized locally. Scanned PDFs can be attached as page images.
+- **Projects:** select a specific folder. Reads are scoped to it; every file replacement and shell command needs approval. Rejecting stops that action. File replacements retain local backups. Commands can modify/delete files and are not automatically undoable.
+- **Pip:** click, drag, hide, or reset the companion. Motion respects Reduce Motion and dragging snaps to an 8-point grid.
+- **Updates:** Manage models → Check for updates. Downloads are offered through GitHub Releases; replacing the app preserves local data. No automatic updater is included.
 
-Reads block hidden and common credential filenames, path traversal and symlinks escaping the selected project. Commands use macOS sandbox-exec with restricted filesystem access, no network, a stripped environment, 30-second timeout, and 64 KB output cap. Commands cannot modify .git metadata. Some development tools will not work with these restrictions. This is a constrained local helper, not a security-audited VM or full Codex equivalent. It does not inherit Codex history or browse the web. Project access is cleared on relaunch; switching to a conversation from another project disables tools. Its answers can be less capable than large cloud models.
+## Models
 
-Configured with an 8,192-token context, thinking disabled for responsive replies, and a 3,072-token response limit. Start a fresh chat for a new topic. The model is released from memory after five idle minutes by Ollama. Quit heavy apps if memory gets tight.
+| Model | Download | Capabilities in Lantern |
+|---|---:|---|
+| Qwen 3.5 9B Q4_K_M | ~6.6 GB | Recommended; text, images, project tools; 8K context |
+| ArliAI RPMax Nemo 12B v1.2 Q4_K_M | ~7.5 GB | Optional creative text chat; 4K context |
 
-## Build
+Model files require additional working memory. Keep other large models and image-generation workloads unloaded on 16 GB Macs. Each model retains its upstream license; no model weights are included in this repository.
 
-Run `./script/build_and_run.sh` to build and launch. Requires Apple’s Swift toolchain. The resulting app is in `dist/Lantern.app`. It is locally ad-hoc signed for this Mac, not notarized for public distribution.
+## Optional images
 
-## Pip
+The Image panel is an optional integration requiring a separate Draw Things installation and downloaded image model. In Draw Things, enable its HTTP API at `127.0.0.1:7860`, with Bridge Mode off. The panel releases Lantern's chat model before rendering. Image generation is not part of the standalone first-run setup.
 
-Pip is Lantern's in-app animated moth companion. Click to greet, drag to reposition, right-click to hide or reset, or use the paw button. Dragging uses a fixed window coordinate space, a lifted appearance and hand cursor, then gently snaps to an 8-point grid. Its position is remembered between launches and adapts to window resizing. Right-click and choose Back to perch to reset. It reacts to generation and approval states and respects macOS Reduce Motion. It stays within Lantern's window.
+## Privacy and constraints
 
-## Verification
+Conversations and attachments are stored in `~/Library/Application Support/Lantern/conversations.json`; images and backups are under the same application-support folder. App updates preserve those files. If saved chats cannot be decoded, Lantern refuses to overwrite them.
 
-Qwen 3.5 9B ran with 100% GPU use and an 8K context on this M5 / 16 GB Mac. A 204-token coding response measured about 19.45 tokens/second (one sample, not a general benchmark). Live UI tests covered reading a file, approving a replacement, approving a harmless command, and rejecting a new file. Restriction checks covered out-of-project reads/writes, symlink escapes, hidden secrets, network access, another process's environment, output limits, stale approvals, unapproved writes, and command timeout.
+The bundled engine listens only on `127.0.0.1:11435`, with cloud features disabled and a separate engine home. New installations store models under Lantern's application-support folder; existing Ollama models can be reused. Prompts and attachments are sent to loopback only, with redirects rejected. Model downloads contact the model registry/provider; manual update checks contact GitHub.
 
-Pip uses 32 distinct transparent PNG animation frames: 8 each for idle, working, happy and waiting. Each frame is 256 × 256 pixels with a common (128, 128) anchor. The accompanying atlas is an evenly spaced 8 × 4 grid. Artwork was generated using the built-in image tool and cut out locally with Apple Vision plus edge cleanup, as approved. Frame poses are deterministic layered animation from that canonical artwork.
+Tools block path escapes and common credential filenames. The native command supervisor uses macOS sandbox-exec, a stripped environment, no network, a 30-second timeout, a 64 KB output cap, and process-group cancellation. Git metadata writes are blocked. This is a constrained helper, not a security-audited VM; review commands before approving them. Tool use remains Qwen-only in this release.
 
-### Photos and files
-Use **Attach** in the composer or drop files onto it. Supports photos, UTF-8 text/code, and PDFs with selectable text. Up to four attachments per message, 20 MB per source file, and 12,000 extracted document characters total. Images are resized locally to a maximum 1280-pixel edge. Attachments are stored with local conversations and sent only to the local model. Scanned PDFs should be supplied as page images. Attaching a file does not enable tools or authorize changing its original.
+## Build and sign
 
+Open `Lantern.xcodeproj` in Xcode and select your team. See [SIGNING.md](SIGNING.md) for archive, Developer ID, notarization, and distribution steps.
 
-## Local images
+For a local build using Apple's Swift tools:
 
-The Image button beside Attach opens the local image studio. It connects only to Draw Things at `127.0.0.1:7860`; HTTP redirects and non-local-model identifiers are rejected. In Draw Things, choose Settings → Advanced → API Server. Select HTTP, enable Server Online, use port 7860 and IP 127.0.0.1, and keep Bridge Mode off. Select a downloaded local model.
+```sh
+./script/build_and_run.sh
+# Build only:
+./script/build_and_run.sh --build
+# Package the local test app:
+./script/package_dmg.sh
+```
 
-The panel sends the entered prompt directly, generates one square PNG, saves it under `~/Library/Application Support/Lantern/Images`, and offers Save PNG, Show in Finder, and Attach to chat. Chat models are unloaded before rendering to free unified memory. LoRAs, controls, upscaling and refiners are cleared for these requests; other sampling settings come from Draw Things. No prompt-content filter is added by Lantern. Model behavior is not guaranteed unrestricted.
-
-Verification: release build and installed image-panel UI checked. A 512 × 512 PNG was generated through the installed Lantern image panel using local FLUX.1 Schnell, displayed successfully, and saved to the Images folder. The Draw Things listener was verified bound to 127.0.0.1:7860 with Bridge Mode off.
-
-
-## Chat model picker
-
-Use Model beneath the conversation title to choose Qwen or RPMax. The selection is remembered across launches and each new assistant reply records the answering model. Switching does not erase the conversation. Only one chat model is kept loaded.
-
-Qwen uses qwen3.5:9b and supports photos and project tools. RPMax uses Mistral Nemo 12B ArliAI RPMax v1.2 Q4_K_M, with a 4096-token context to fit the 16 GB Mac. RPMax is text-only in Lantern: file text can be attached, photos need Qwen, and project tools run only with Qwen. The Image panel uses Draw Things independently of either chat model.
+The build downloads Ollama v0.22.0 from its official GitHub release and verifies the pinned SHA-256. Runtime binaries are ignored by Git. Third-party notices are in `Resources/ThirdParty`. To regenerate the Xcode project after changing `project.yml`, run `xcodegen generate`.
 
 ## License
 
-Lantern is open source under the [MIT License](LICENSE). Model weights and third-party applications such as Ollama and Draw Things are not included and retain their own licenses.
+Lantern is [MIT licensed](LICENSE). The bundled Ollama engine and its dependencies retain their licenses in `Resources/ThirdParty`. Model weights and optional third-party applications retain their own licenses. Pip artwork is AI-generated with locally authored animation; 32 transparent PNG frames use a common anchor and evenly spaced atlas.

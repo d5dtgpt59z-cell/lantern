@@ -15,6 +15,8 @@ struct PetCompanion: View {
     @State private var delightedUntil = Date.distantPast
     private var mood: String {
         if store.approval != nil { return "Your call!" }
+        if store.downloading != nil { return "Getting things ready" }
+        if store.error != nil { return "A little help needed" }
         if store.generating { return "On it!" }
         if store.error != nil { return "We’ll figure it out" }
         return "Keeping watch"
@@ -27,7 +29,7 @@ struct PetCompanion: View {
             TimelineView(.animation(minimumInterval: 1.0 / 15, paused: reduceMotion || scenePhase != .active)) { timeline in
                 let time = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
                 let happy = timeline.date < delightedUntil
-                let working = store.generating && store.approval == nil
+                let working = (store.generating || store.downloading != nil) && store.approval == nil
                 let bounce = reduceMotion ? 0 : sin(time * (happy ? 9 : working ? 5 : 2)) * (happy ? 9 : working ? 4 : 2)
                 VStack(spacing: -20) {
                     PlushPip(time: time, working: working, happy: happy, waiting: store.approval != nil, gaze: CGSize(width: max(-2, min(2, (pointer.x - point.x) / 90)), height: max(-1.5, min(1.5, (pointer.y - point.y) / 100))))

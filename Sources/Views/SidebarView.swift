@@ -27,6 +27,7 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 9) {
                 Label(store.status, systemImage: store.ready ? "checkmark.shield" : "hourglass").font(.caption).foregroundStyle(.secondary)
                 Button("Retry connection") { store.error = nil; Task { await store.connect() } }.font(.caption).buttonStyle(.plain).disabled(store.generating)
+                Button("Manage models…") { store.refreshStorage(); store.showModels = true }.font(.caption).buttonStyle(.plain).disabled(store.generating)
                 Text("A little light goes a long way.").font(.system(size: 10)).foregroundStyle(.tertiary)
             }.padding(18)
         }

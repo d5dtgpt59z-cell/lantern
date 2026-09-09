@@ -5,10 +5,11 @@
 <key>CFBundleIdentifier</key><string>com.builtbymagnus.lantern</string>
 <key>CFBundleName</key><string>Lantern</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>1.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleShortVersionString</key><string>1.0.0</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>CFBundleIconFile</key><string>Lantern</string>
 <key>LSMinimumSystemVersion</key><string>15.0</string>
+<key>LSArchitecturePriority</key><array><string>arm64</string></array>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
