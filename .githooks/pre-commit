@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+command -v gitleaks >/dev/null 2>&1 || { echo "Install gitleaks before committing." >&2; exit 1; }
+gitleaks git --staged --redact=100 --ignore-gitleaks-allow --config .gitleaks.toml --gitleaks-ignore-path /dev/null --no-banner .

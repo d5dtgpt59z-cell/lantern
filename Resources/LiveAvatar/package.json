@@ -1,0 +1,9 @@
+{
+  "name": "paige-live-avatar",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "dependencies": { "@anam-ai/js-sdk": "4.29.1" },
+  "devDependencies": { "esbuild": "0.28.2" },
+  "scripts": { "test": "node --test src/bridge-core.test.js" }
+}
